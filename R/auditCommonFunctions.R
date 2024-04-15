@@ -179,12 +179,16 @@
     positionInContainer = 5
   )
 
+
   if (!options[["bayesian"]]) {
     # Create the implied distribution plot
     .plotErrorDist(options, planningOptions, planningState, planningContainer,
       jaspResults, ready,
       positionInContainer = 7
     )
+
+  
+
   } else if (options[["bayesian"]]) {
     # Create the prior and expected posterior plot
     .jfaPlotPriorAndPosterior(options, planningOptions, planningState, planningContainer,
@@ -198,6 +202,10 @@
       positionInContainer = 9, stage = "planning"
     )
   }
+
+    # create two stage sampling plans plot 
+    .plotTwostageTest(options, planningOptions, planningState, planningContainer, jaspResults, positionInContainer = 10)
+
 }
 
 #####################################
@@ -1529,9 +1537,16 @@
     }
 
     if (!options[["bayesian"]]) {
+      if (options[["twostage_test"]]){
+        expected_seq <- c(parentOptions[["expected_val"]], parentOptions[["expected_val"]]-1)
+      }
+      else {
+        expected_seq <- parentOptions[["expected_val"]]
+  
+      }
       result <- try({
         jfa::planning(
-          materiality = materiality, min.precision = min_precision, expected = parentOptions[["expected_val"]],
+          materiality = materiality, min.precision = min_precision, expected = expected_seq,
           likelihood = options[["likelihood"]], N.units = N.units, conf.level = confidence,
           by = options[["by"]], max = options[["max"]]
         )
@@ -1607,7 +1622,8 @@
     "materiality_test",
     "separateMisstatement",
     "by",
-    "display"
+    "display",
+    "twostage_test"
   ))
   columnType <- if (options[["display"]] == "percent") "string" else "number"
 
@@ -1629,7 +1645,14 @@
   }
 
   table$addColumnInfo(name = "x", title = gettext("Tolerable misstatements"), type = if (options[["expected_type"]] == "expected_all") "string" else "number")
-  table$addColumnInfo(name = "n", title = gettext("Minimum sample size"), type = "integer")
+  
+  if (!options[["bayesian"]] && !options[["workflow"]] && options[["twostage_test"]]) {
+    table$addColumnInfo(name = "n", title = gettext("Sample size per stage"), type = "integer")
+    table$addFootnote("Sample size per stage is based on assuming equal sample size in stage 1 and 2. There are more variations of the two-stage sampling plan. Inspect the plot for other possibilities.")
+  }
+  else {
+    table$addColumnInfo(name = "n", title = gettext("Minimum sample size"), type = "integer")
+  }
 
   parentContainer[["summaryTable"]] <- table
 
@@ -2016,6 +2039,24 @@
     }
   }
 }
+
+.plotTwostageTest <- function(options, parentOptions, parentState, parentContainer, jaspResults, ready, positionInContainer) {
+  if (!options[["bayesian"]] && !options[["workflow"]] && !options[["twostage_test"]]){
+    return()
+  }
+  
+  plot_nstaged <- createJaspPlot(plot = NULL, title = "title", width = 530, height = 350)
+  plot_nstaged$position <- positionInContainer
+  plot_nstaged$dependOn(options = c("twostage_test"))
+  parentContainer[["twostageplot"]] <- plot_nstaged
+
+  plot_nstaged$plotObject <- plot(parentState) +
+    jaspGraphs::geom_rangeframe() +
+    jaspGraphs::themeJaspRaw(legend.position = "none")
+
+  
+}
+
 
 .plotErrorDist <- function(options, parentOptions, parentState, parentContainer, jaspResults, ready, positionInContainer) {
   if (!options[["plotErrorDist"]]) {

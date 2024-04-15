@@ -38,7 +38,7 @@ Form
 
 	// Visible options
 	Planning.SamplingObjectives { id: objectives }
-	Planning.ExpectedErrors { }
+	Planning.ExpectedErrors { id: expected }
 	Planning.Population { id: population; optional: !objectives.absolute_materiality }
 	Planning.AuditRiskModel { enable: objectives.use_materiality }
 	Common.ExplanatoryText { }
@@ -55,6 +55,26 @@ Form
 		title: qsTr("Advanced")
 		Planning.Likelihood { bayesian: false; enable_hypergeometric: population.n_units > 0 }
 		Planning.Iterations { }
+
+		Group
+		{
+			title: 							qsTr("Sequential sampling")
+			columns:						1
+			enabled:						!expected.expected_is_relative 
+
+			CheckBox
+			{
+				id: 						twostage_test
+				text: 						qsTr("Two-stage sample")
+				name: 						"twostage_test"
+				checked:					false
+				info:						qsTr("Perform two-stage sampling")
+			}
+
+		}
+
+	
+
 	}
 
 	Common.DownloadReport { }
