@@ -26,7 +26,7 @@ Group
 {
 	property bool	enable:	true
 
-	title: 				qsTr("Most Likely Misstatement")
+	title: 				qsTr("Most likely misstatement")
 	enabled:			enable
 	info:				qsTr("The a priori most likely misstatement rate in the population, which is incorporated into the prior distribution.")
 
