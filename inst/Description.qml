@@ -58,6 +58,13 @@ Description
 		func:			"auditBayesianEvaluation"
 		requiresData:	false
 	}
+
+	Analysis
+	{
+		title:			qsTr("Bayesian Optional Stopping")
+		func:			"auditBayesianOptionalStopping"
+	}
+
 	Analysis
 	{
 		title:			qsTr("True Value Estimation")

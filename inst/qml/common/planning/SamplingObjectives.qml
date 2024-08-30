@@ -30,6 +30,8 @@ Group
 	readonly	property alias	precision_value:		min_precision_value.value
 	readonly	property bool	use_precision:			min_precision_test.checked
 				property bool	enable:					true
+				property bool	show_confidence:		true
+
 
 	enabled:							enable
 	columns:							1
@@ -139,6 +141,7 @@ Group
 	{
 		name: 							"conf_level"
 		label: 							qsTr("Confidence")
+		visible:						show_confidence
 		info:							qsTr("The confidence level used. The confidence level is the complement of the audit risk: the risk that the user is willing to take to give an incorrect judgment about the population. For example, if you want to use an audit risk of 5%, this equals 95% confidence.")
 	}
 }
