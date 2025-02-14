@@ -27,16 +27,30 @@ Form
 {
     columns: 1
     CheckBox { name: "bayesian"; checked: true; visible: false }
-    RadioButtonGroup { name: "dataType"; visible: false; RadioButton { name: "data"; checked: true } }
+    RadioButtonGroup { name: "dataType"; visible: false; RadioButton { name: "pdata"; checked: true } }
     CheckBox { name: "workflow"; checked: false; visible: false }
     CheckBox { name: "separateMisstatement"; checked: false; visible: false }
     RadioButtonGroup { name: "expected_type"; visible: false; RadioButton { name: "expected_rel"; checked: true } }
-    
-    Evaluation.EvaluationVariablesList 
+
+
+	VariablesForm
+		{
+			id: 									variablesFormPlanning
+			preferredHeight: 						jaspTheme.smallDefaultVariablesFormHeight
+			enabled:								!pasteVariables.checked
+
+			AvailableVariablesList
+			{
+				name: 								"variablesFormPlanning"
+			}
+
+			Selection.IdVariable { id: id }
+			Selection.BookVariable { id: values }
+		}
+
+    Section
     {
-        id: variables
-        use_sample: true
-    }
+        title: qsTr("Objectives")
 
     Planning.SamplingObjectives 
     {
@@ -81,6 +95,79 @@ Form
     info:                   qsTr("Choose most likely misstatement to construct the impartial prior distribution.")
     Planning.ExpectedPopRate { }
     }
+    }
+
+        Section
+        {
+            title: qsTr("Execution")
+
+
+            Evaluation.Annotation { id: annotation; enable: !pasteVariables.checked; enable_values: values.use_book; enable_binary: !algorithm.use_partial }
+            Evaluation.AddVariables { id: names; enable: !pasteVariables.checked }
+
+
+            Item
+		    {
+                Layout.preferredHeight:					annotation.height
+                Layout.columnSpan:						2
+                Layout.fillWidth:						true
+
+                CheckBox
+                {
+                    id: 								pasteVariables
+                    anchors.right: 						pasteButton.left
+                    width: 								height
+                    visible: 							false
+                    name: 								"pasteVariables"
+                    checked: 							false
+                }
+
+                Group
+                {
+                    title:  qsTr("Sample selection")
+                    columns: 3
+
+                    Button
+                    {
+                        id: 								increaseSample1
+                        text:								qsTr("<b>+ 1</b>")
+                    }
+                    Button
+                    {
+                        id: 								increaseSample3
+                        text:								qsTr("<b>+ 3</b>")
+                    }
+                    Button
+                    {
+                        id: 								increaseSample5
+                        text:								qsTr("<b>+ 5</b>")
+                    }
+                }
+
+            }
+
+			Label
+			{
+				id: 								performAuditText
+				Layout.alignment: 					Qt.AlignHCenter
+				text: 								annotation.use_values ? qsTr("<b>Annotate your selected items with their audit (true) values.</b>") : qsTr("<b>Annotate your selected items as correct (0) or incorrect (1).</b>")
+				visible: 							pasteVariables.checked
+			}
+
+			TableView
+			{
+				id:									performAuditTable
+				name:								"performAudit"
+				Layout.fillWidth: 					true
+				modelType:							JASP.FilteredDataEntryModel
+                filter:                             names.indicator_name + " > 0"
+				source:     						["id", "values"]
+				defaultValue:						0
+				decimals:							10
+				Layout.preferredHeight:				500 * preferencesModel.uiScale
+			}
+
+        }
 
     Section
     {

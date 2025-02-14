@@ -21,7 +21,8 @@
 auditBayesianOptionalStopping <- function(jaspResults, dataset, options, ...) {
   dataset <- .jfaReadData(options, jaspResults, stage = "evaluation")
   evaluationContainer <- .jfaAddStageContainer(jaspResults, stage = "evaluation", position = 1)
-  evaluationOptions <- .jfaInputOptionsGather(options, dataset, jaspResults, stage = "evaluation")
+  .jfaAddIndicator(options, jaspResults, dataset)
+  evaluationOptions <- .jfaInputOptionsGather(options, dataset, jaspResults, stage = "planning")
   evaluationStateOptStop <- .jfaEvaluationOptStop(options, dataset, evaluationContainer)
   .jfaTableNumberInit(jaspResults)
   .jfaFigureNumberInit(jaspResults)
@@ -35,6 +36,15 @@ auditBayesianOptionalStopping <- function(jaspResults, dataset, options, ...) {
   .jfaPlotSObjectives(options, evaluationOptions, evaluationStateOptStop, evaluationContainer, jaspResults, positionInContainer = 13)
   .jfaTableTaints(options, dataset, evaluationContainer, jaspResults, positionInContainer = 15)
   .jfaPlotSObjectives(options, evaluationOptions, evaluationStateOptStop, evaluationContainer, jaspResults, positionInContainer = 17)
+}
+
+.jfaAddIndicator <- function(options, jaspResults, dataset) {
+  if (is.null(jaspResults[["indicator_col"]])) {
+    jaspResults[["indicator_col"]] <- createJaspColumn(columnName = options[["indicator_col"]], dependencies = "indicator_col")
+    dataset[[options[["indicator_col"]]]] <- rep(0, nrow(dataset))
+    initialSelection <- sample(1:nrow(dataset), 1)
+    dataset[[options[["indicator_col"]]]][initialSelection] <- 1
+  }
 }
 
 .createTable <- function(options, jaspResults, dataset, evaluationStateOptStop, evaluationContainer, positionInContainer) {
