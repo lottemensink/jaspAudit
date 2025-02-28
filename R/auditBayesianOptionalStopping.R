@@ -57,29 +57,59 @@ auditBayesianOptionalStopping <- function(jaspResults, dataset, options, ...) {
     jaspResults[["optStopContainer"]] <- container
 }
 
+# .jfaUpdateIndicator <- function(options, jaspResults, dataset) {
+#   if (is.null(jaspResults[["indicator_col"]])) {
+#     jaspResults[["indicator_col"]] <- createJaspColumn(columnName = options[["indicator_col"]], dependencies = c("indicator_col", "sample_size"))
+#     dataset <- .readDataSetToEnd(all.columns = TRUE)
+#     sampleFilter <- rep(0, nrow(dataset))
+#   }
+
+#   if (!is.null(jaspResults[["sampleFilter"]])) {
+#   sampleFilter <- jaspResults[["sampleFilter"]]$object
+#   oldLength <- sum(sampleFilter)
+#   newLength <- options[["sample_size"]]
+#   update <- newLength - oldLength
+
+#     if (update > 0) {
+#       addedIndices <- sample(1:nrow(dataset), update, replace = TRUE)
+#       sampleFilter[addedIndices] <- sampleFilter[addedIndices] + 1
+#     }
+#   }  
+
+#   jaspResults[["sampleFilter"]] <- createJaspState(sampleFilter)
+#   jaspResults[["sampleFilter"]]$dependOn(options = c(""))
+#   jaspResults[["indicator_col"]]$setOrdinal(sampleFilter)
+# }
+
 .jfaUpdateIndicator <- function(options, jaspResults, dataset) {
-  if (is.null(jaspResults[["indicator_col"]])) {
-    jaspResults[["indicator_col"]] <- createJaspColumn(columnName = options[["indicator_col"]], dependencies = c("indicator_col", "sample_size"))
-    dataset <- .readDataSetToEnd(all.columns = TRUE)
-    sampleFilter <- rep(0, nrow(dataset))
+  dataset <- .readDataSetToEnd(all.columns = TRUE)
+
+  if (is.null(jaspResults[["sampleFilter"]])) {
+    sampleFilter <- rep(0, nrow(dataset))  
+    print("Initializing sampleFilter from scratch!")
+  } else {
+    sampleFilter <- jaspResults[["sampleFilter"]]$object
+    print(paste("Loaded existing sampleFilter with", sum(sampleFilter), "selected items"))
   }
 
-  if (!is.null(jaspResults[["sampleFilter"]])) {
-  sampleFilter <- jaspResults[["sampleFilter"]]$object
-  oldLength <- sum(sampleFilter)
+  oldLength <- sum(sampleFilter) 
   newLength <- options[["sample_size"]]
   update <- newLength - oldLength
 
-    if (update > 0) {
-      addedIndices <- sample(1:nrow(dataset), update, replace = TRUE)
-      sampleFilter[addedIndices] <- sampleFilter[addedIndices] + 1
-    }
-  }  
+  if (update > 0) {
+    addedIndices <- sample(1:nrow(dataset), update, replace = TRUE)
+    sampleFilter[addedIndices] <- sampleFilter[addedIndices] + 1
+  }
 
   jaspResults[["sampleFilter"]] <- createJaspState(sampleFilter)
-  jaspResults[["sampleFilter"]]$dependOn(options = c(""))
+
+  if (is.null(jaspResults[["indicator_col"]])) {
+    jaspResults[["indicator_col"]] <- createJaspColumn(columnName = options[["indicator_col"]], dependencies = c("indicator_col", "sample_size"))
+  }
+  
   jaspResults[["indicator_col"]]$setOrdinal(sampleFilter)
 }
+
 
 .createTable <- function(options, jaspResults, dataset, evaluationStateOptStop, optStopContainer, positionInContainer) {
   if (!is.null(jaspResults[["bosTable"]])) {
