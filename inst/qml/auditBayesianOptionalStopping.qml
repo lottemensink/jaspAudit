@@ -49,101 +49,162 @@ Form
 		}
 
     Section
-    {
-        title: qsTr("Objectives")
+        {
+            title: qsTr("Objectives")
 
-    Planning.SamplingObjectives 
-    {
-        id: objectives
-        show_confidence: true 
-    }
-    
-    Common.ExplanatoryText { }
-
+        Planning.SamplingObjectives 
+        {
+            id: objectives
+            show_confidence: true 
+        }
         
-    CheckBox
-    {
-    id:                     thresholds_check
-    text:                   qsTr("Optional stopping with thresholds")
-    name:                   "thresholds_check"
-    checked:                true
-    info:                   qsTr("Bayesian optional stopping allows the auditor to specify Bayes factor thresholds that determine when data collection can be terminated based on the allowable risks to draw an incorrect conclusion.")
-    DoubleField
-    {
-        name:               "alpha_risk"
-        label:              qsTr("Allowable risk of incorrect acceptance")
-        min:                0
-        defaultValue:       0.05
-        visible:            threshold_check == true
-        info:               qsTr("The allowable risk of incorrect acceptance refers to the allowable risk that the auditor concludes that the financial statements are free of material misstatement when they are actually materially misstated. In other words, it refers to the risk to incorrectly accept the population of financial statements")
-    }
+        Common.ExplanatoryText { }
+
+        CheckBox
+        {
+        id:                     thresholds_check
+        text:                   qsTr("Optional stopping with thresholds")
+        name:                   "thresholds_check"
+        checked:                true
+        info:                   qsTr("Bayesian optional stopping allows the auditor to specify Bayes factor thresholds that determine when data collection can be terminated based on the allowable risks to draw an incorrect conclusion.")
         DoubleField
-    {
-        name:               "beta_risk"
-        label:              qsTr("Allowable risk of incorrect rejection")
-        min:                0
-        defaultValue:       0.05
-        visible:            threshold_check == true
-        info:               qsTr("The allowable risk of incorrect rejection refers to the allowable risk that the auditor concludes that the financial statements are materially misstated when they are actually free of material misstatement. In other words, it refers to the risk to incorrectly reject the population of financial statements.")
-    }
+        {
+            name:               "alpha_risk"
+            label:              qsTr("Allowable risk of incorrect acceptance")
+            min:                0
+            defaultValue:       0.05
+            visible:            threshold_check == true
+            info:               qsTr("The allowable risk of incorrect acceptance refers to the allowable risk that the auditor concludes that the financial statements are free of material misstatement when they are actually materially misstated. In other words, it refers to the risk to incorrectly accept the population of financial statements")
+        }
+            DoubleField
+        {
+            name:               "beta_risk"
+            label:              qsTr("Allowable risk of incorrect rejection")
+            min:                0
+            defaultValue:       0.05
+            visible:            threshold_check == true
+            info:               qsTr("The allowable risk of incorrect rejection refers to the allowable risk that the auditor concludes that the financial statements are materially misstated when they are actually free of material misstatement. In other words, it refers to the risk to incorrectly reject the population of financial statements.")
+        }
+        }
+
+        Group
+        {
+        title:                  qsTr("Impartial prior elicitation")
+        enabled:                enable
+        info:                   qsTr("Choose most likely misstatement to construct the impartial prior distribution.")
+        Planning.ExpectedPopRate { }
+        }
     }
 
-    Group
+    Section
     {
-    title:                  qsTr("Impartial prior elicitation")
-    enabled:                enable
-    info:                   qsTr("Choose most likely misstatement to construct the impartial prior distribution.")
-    Planning.ExpectedPopRate { }
-    }
-    }
+        title: qsTr("Execution")
+
+        Evaluation.Annotation { id: annotation; enable: !pasteVariables.checked; enable_values: values.use_book }
+        Evaluation.AddVariables { id: names; enable: !pasteVariables.checked }
+
+        CheckBox
+            {
+                id:                                 pasteVariables
+                visible:                            false
+                name:                               "pasteVariables"
+                checked:                            false
+            }
+
+        Button
+        {
+            id: 								pasteButton
+            text: 								qsTr("<b>Continue</b>")
+            enabled: 							names.indicator_name != "" && names.variable_name != "" && !pasteVariables.checked && id.use_id
+            onClicked:
+            {
+                pasteVariables.checked 		= true
+                performAuditTable.colName   = names.variable_name
+                performAuditTable.filter    = names.indicator_name + " > 0"
+            }
+        }
 
         Section
-        {
-            title: qsTr("Execution")
+		{
+			id: 									executeAuditSection
+			title:									qsTr("Sample Selection")
+			expanded:								pasteVariables.checked
+			enabled:								pasteVariables.checked
+			columns:								1
+
+			Label
+			{
+				id: 								increaseSample
+				Layout.alignment: 					Qt.AlignHCenter
+				text: 								qsTr("<b>Increase your sample size.</b>") 
+				visible: 							pasteVariables.checked
+			}
 
 
-            Evaluation.Annotation { id: annotation; enable: !pasteVariables.checked; enable_values: values.use_book; enable_binary: !algorithm.use_partial }
-            Evaluation.AddVariables { id: names; enable: !pasteVariables.checked }
-
-
-            Item
+            Slider
 		    {
-                Layout.preferredHeight:					annotation.height
-                Layout.columnSpan:						2
-                Layout.fillWidth:						true
+                name: "sample_size"
+                min: 1
+                max: 99999
+                value: 1
+                decimals: 0
+                vertical: true
+                id: dataSlider
+                visible: false
+                onValueChanged: {
+                    moved()
+                    performAuditTable.initialValuesSource = annotation.use_values ? "values" : ""
+                }
+		    }
 
-                CheckBox
+            Row 
+            {
+                spacing: 10 
+
+                Button
                 {
-                    id: 								pasteVariables
-                    anchors.right: 						pasteButton.left
-                    width: 								height
-                    visible: 							false
-                    name: 								"pasteVariables"
-                    checked: 							false
+                    id:                                 increaseSample1
+                    text:                               qsTr("<b>+ 1</b>")
+                    onClicked:  {
+                        dataSlider.value += 1
+                        performAuditTable.filter = names.indicator_name + " > 0"
+                        performAuditTable.initialValuesSource = annotation.use_values ? "values" : ""
+
+                }
+                }
+                Button
+                {
+                    id:                                 increaseSample3
+                    text:                               qsTr("<b>+ 3</b>")
+                    onClicked:  {
+                        dataSlider.value += 3
+                        performAuditTable.filter = names.indicator_name + " > 0"
+
+                }
                 }
 
-                Group
+                Button
                 {
-                    title:  qsTr("Sample selection")
-                    columns: 3
+                    id:                                 increaseSample5
+                    text:                               qsTr("<b>+ 5</b>")
+                    onClicked:   {
+                        dataSlider.value += 5
+                        performAuditTable.filter = names.indicator_name + " > 0"
 
-                    Button
-                    {
-                        id: 								increaseSample1
-                        text:								qsTr("<b>+ 1</b>")
-                    }
-                    Button
-                    {
-                        id: 								increaseSample3
-                        text:								qsTr("<b>+ 3</b>")
-                    }
-                    Button
-                    {
-                        id: 								increaseSample5
-                        text:								qsTr("<b>+ 5</b>")
-                    }
+                }
                 }
 
+                Button
+                {
+                    id:                                 increaseSample10
+                    text:                               qsTr("<b>+ 10</b>")
+                    onClicked: {
+                        dataSlider.value += 10
+                        performAuditTable.filter = names.indicator_name + " > 0"
+
+                    }                         
+
+                }
             }
 
 			Label
@@ -160,14 +221,18 @@ Form
 				name:								"performAudit"
 				Layout.fillWidth: 					true
 				modelType:							JASP.FilteredDataEntryModel
-                filter:                             names.indicator_name + " > 0"
 				source:     						["id", "values"]
 				defaultValue:						0
 				decimals:							10
-				Layout.preferredHeight:				500 * preferencesModel.uiScale
+				minimum:							-Infinity
+				Layout.preferredHeight:				250 * preferencesModel.uiScale
+                initialValuesSource:                annotation.use_values ? "values" : ""
 			}
+		}
 
-        }
+
+    }
+
 
     Section
     {
@@ -185,13 +250,13 @@ Form
         }
         Common.Display { }
     }
+
     Section
     {
         title: qsTr("Advanced")
         columns: 3
+        Evaluation.IntervalType { bayesian: true; test: objectives.use_materiality }
 
-    Evaluation.IntervalType { bayesian: true; test: objectives.use_materiality }
-
-  }
+    }
        
 }

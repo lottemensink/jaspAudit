@@ -19,38 +19,73 @@
 # reviewer in the pull Request.
 
 auditBayesianOptionalStopping <- function(jaspResults, dataset, options, ...) {
-  dataset <- .jfaReadData(options, jaspResults, stage = "evaluation")
-  evaluationContainer <- .jfaAddStageContainer(jaspResults, stage = "evaluation", position = 1)
-  .jfaAddIndicator(options, jaspResults, dataset)
+  dataset <- .jfaReadData(options, jaspResults, stage = "procedure")
+  optStopContainer <- .jfaCreateContainer(jaspResults, position = 1)
+  .jfaUpdateIndicator(options, jaspResults, dataset)
   evaluationOptions <- .jfaInputOptionsGather(options, dataset, jaspResults, stage = "planning")
-  evaluationStateOptStop <- .jfaEvaluationOptStop(options, dataset, evaluationContainer)
+  evaluationStateOptStop <- .jfaEvaluationOptStop(options, dataset, optStopContainer, jaspResults)
   .jfaTableNumberInit(jaspResults)
   .jfaFigureNumberInit(jaspResults)
-  .addExplanation(options, jaspResults, evaluationStateOptStop, evaluationContainer, positionInContainer = 1)
-  .createTable(options, jaspResults, dataset, evaluationStateOptStop, evaluationContainer, positionInContainer = 2)
-  .addConclusion(options, jaspResults, evaluationStateOptStop, evaluationContainer, positionInContainer = 4)
-  .jfaPlotOptStop(options, jaspResults, evaluationStateOptStop, dataset, evaluationContainer, positionInContainer = 5)
-  .jfaPlotEstimates(options, evaluationStateOptStop, evaluationContainer, jaspResults, positionInContainer = 7)
-  .jfaPlotPriorAndPosterior(options, evaluationOptions, evaluationStateOptStop, evaluationContainer, jaspResults, positionInContainer = 9, stage = "evaluation")
-  .jfaTablePriorPosterior(options, evaluationOptions, evaluationStateOptStop, evaluationContainer, jaspResults, positionInContainer = 11, stage = "evaluation")
-  .jfaPlotSObjectives(options, evaluationOptions, evaluationStateOptStop, evaluationContainer, jaspResults, positionInContainer = 13)
-  .jfaTableTaints(options, dataset, evaluationContainer, jaspResults, positionInContainer = 15)
-  .jfaPlotSObjectives(options, evaluationOptions, evaluationStateOptStop, evaluationContainer, jaspResults, positionInContainer = 17)
+  .addExplanation(options, jaspResults, evaluationStateOptStop, optStopContainer, positionInContainer = 1)
+  .createTable(options, jaspResults, dataset, evaluationStateOptStop, optStopContainer, positionInContainer = 2)
+  .addConclusion(options, jaspResults, evaluationStateOptStop, optStopContainer, positionInContainer = 4)
+  .jfaPlotOptStop(options, jaspResults, evaluationStateOptStop, dataset, optStopContainer, positionInContainer = 5)
+  .jfaPlotEstimates(options, evaluationStateOptStop, optStopContainer, jaspResults, positionInContainer = 7)
+  .jfaPlotPriorAndPosterior(options, evaluationOptions, evaluationStateOptStop, optStopContainer, jaspResults, positionInContainer = 9, stage = "evaluation")
+  .jfaTablePriorPosterior(options, evaluationOptions, evaluationStateOptStop, optStopContainer, jaspResults, positionInContainer = 11, stage = "evaluation")
+  .jfaPlotSObjectives(options, evaluationOptions, evaluationStateOptStop, optStopContainer, jaspResults, positionInContainer = 13)
+#  .jfaTableTaints(options, dataset, optStopContainer, jaspResults, positionInContainer = 15)
+#  .jfaPlotSObjectives(options, evaluationOptions, evaluationStateOptStop, optStopContainer, jaspResults, positionInContainer = 17)
 }
 
-.jfaAddIndicator <- function(options, jaspResults, dataset) {
+.jfaCreateContainer <- function(jaspResults, position) {
+    if (!is.null(jaspResults[["optStopContainer"]])) {
+      return(jaspResults[["optStopContainer"]])
+    }
+
+    container <- createJaspContainer(title = "")
+    container$position <- position
+    container$dependOn(options = c(
+      "id", "values", "values.audit", "times", "conf_level", "sample_size",
+      "n_units", "n_items", "expected_type", "expected_rel_val", "expected_abs_val",
+      "materiality_test", "materiality_type", "materiality_rel_val", "materiality_abs_val",
+      "sample_size", "method", "area", "display", "priorType", "separateMisstatement",
+      "min_precision_test", "min_precision_rel_val", "performAudit",
+      "by", "prior_method", "prior_n", "prior_x", "alpha", "beta"
+    ))
+
+    jaspResults[["optStopContainer"]] <- container
+}
+
+.jfaUpdateIndicator <- function(options, jaspResults, dataset) {
   if (is.null(jaspResults[["indicator_col"]])) {
-    jaspResults[["indicator_col"]] <- createJaspColumn(columnName = options[["indicator_col"]], dependencies = "indicator_col")
+    jaspResults[["indicator_col"]] <- createJaspColumn(columnName = options[["indicator_col"]], dependencies = c("indicator_col", "sample_size"))
+    dataset <- .readDataSetToEnd(all.columns = TRUE)
     sampleFilter <- rep(0, nrow(dataset))
-    sampleFilter[sample(1:nrow(dataset), 1)] <- 1
-    jaspResults[["indicator_col"]]$setOrdinal(sampleFilter)
   }
+
+  if (!is.null(jaspResults[["sampleFilter"]])) {
+  sampleFilter <- jaspResults[["sampleFilter"]]$object
+  oldLength <- sum(sampleFilter)
+  newLength <- options[["sample_size"]]
+  update <- newLength - oldLength
+
+    if (update > 0) {
+      addedIndices <- sample(1:nrow(dataset), update, replace = TRUE)
+      sampleFilter[addedIndices] <- sampleFilter[addedIndices] + 1
+    }
+  }  
+
+  jaspResults[["sampleFilter"]] <- createJaspState(sampleFilter)
+  jaspResults[["sampleFilter"]]$dependOn(options = c(""))
+  jaspResults[["indicator_col"]]$setOrdinal(sampleFilter)
 }
 
-.createTable <- function(options, jaspResults, dataset, evaluationStateOptStop, evaluationContainer, positionInContainer) {
+.createTable <- function(options, jaspResults, dataset, evaluationStateOptStop, optStopContainer, positionInContainer) {
   if (!is.null(jaspResults[["bosTable"]])) {
     return()
   }
+
   .jfaTableNumberUpdate(jaspResults)
   title <- gettextf("<b>Table %1$i.</b> Evaluation Summary", jaspResults[["tabNumber"]]$object)
   tb <- createJaspTable(title)
@@ -73,8 +108,8 @@ auditBayesianOptionalStopping <- function(jaspResults, dataset, options, ...) {
   tb$addColumnInfo(name = "x", title = gettext("Misstatements"), type = "integer")
   tb$addColumnInfo(name = "t", title = gettext("Taint"), type = "number")
   tb$addColumnInfo(name = "bf", title = gettextf("BF%1$s", "\u208B\u208A"), type = "number")
-  evaluationContainer[["bosTable"]] <- tb
-  if (is.null(evaluationContainer[["evaluationState"]])) {
+  optStopContainer[["bosTable"]] <- tb
+  if (is.null(optStopContainer[["evaluationState"]])) {
     tb$addFootnote(
       message = gettext("Either the materiality is defined as zero, or one of the required variables is missing."),
       symbol = gettextf("%1$s <b>Insufficient information.</b>", "\u26A0")
@@ -91,21 +126,37 @@ auditBayesianOptionalStopping <- function(jaspResults, dataset, options, ...) {
 }
 
 
-.jfaEvaluationOptStop <- function(options, dataset, evaluationContainer) {
-  if (!is.null(evaluationContainer[["evaluationState"]])) {
-    return(evaluationContainer[["evaluationState"]]$object)
+.jfaEvaluationOptStop <- function(options, dataset, optStopContainer, jaspResults) {
+
+  if (!is.null(optStopContainer[["evaluationState"]])) {
+    return(optStopContainer[["evaluationState"]]$object)
+  }
+
+  if (!options[["pasteVariables"]]) {
+    return()
   }
   # check whether there is enough data to perform analysis
   if (!options[["materiality_test"]] && !options[["min_precision_test"]]) {
     return()
   } else if (options[["materiality_test"]] && options[["materiality_rel_val"]] == 0) {
     return()
-  } else if (options[["dataType"]] %in% c("data", "pdata") && (options[["values.audit"]] == "" || options[["id"]] == "")) {
-    return()
   }
-  if (options[["dataType"]] %in% c("data", "pdata") && options[["values.audit"]] != "" && !all(unique(dataset[[options[["values.audit"]]]]) %in% c(0, 1)) && options[["values"]] == "") {
-    return()
+
+  newData <- .readDataSetToEnd(columns = c(options[["variable_col"]], options[["indicator_col"]]))
+  updatedDataset <- cbind(dataset, newData)
+  sample <- subset(updatedDataset, updatedDataset[[options[["indicator_col"]]]] != 0)
+  sample[[options[["indicator_col"]]]] <- as.numeric(as.character(sample[[options[["indicator_col"]]]]))
+  print(sample)
+  print(nrow(sample))
+
+
+  if (options[["annotation"]] == "binary") {
+    if (!all(sample[[options[["variable_col"]]]] %in% c(0, 1))) {
+      optStopContainer$setError(gettext("The audit result variable should contain only 0's (correct) and 1's (incorrect)."))
+      return()
+    }
   }
+
   materiality <- if (options[["materiality_type"]] == "materiality_rel") options[["materiality_rel_val"]] else options[["materiality_abs_val"]]
   prior <- jfa::auditPrior(materiality = materiality, expected = options[["expected_pop_rate"]], likelihood = "binomial",
     method = "impartial"
@@ -113,42 +164,43 @@ auditBayesianOptionalStopping <- function(jaspResults, dataset, options, ...) {
   conf_level <- 1 - options[["alpha_risk"]]
 
   # select evaluation method
-  if (all(unique(dataset[[options[["values.audit"]]]]) %in% c(0, 1))) {
-    bookValues <- rep(1, nrow(dataset))
-    auditValues <- ifelse(dataset[[options[["values.audit"]]]] == 0, 1, 0)
-    selected <- dataset[[options[["times"]]]]
+  if (all(unique(sample[[options[["variable_col"]]]]) %in% c(0, 1))) {
+    bookValues <- rep(1, nrow(sample))
+    auditValues <- ifelse(sample[[options[["variable_col"]]]] == 0, 1, 0)
+    selected <- sample[[options[["indicator_col"]]]]
     binaryData <- as.data.frame(cbind(bookValues, auditValues, selected))
-    result <- try({
+    result <- # try({
       jfa::evaluation(
         conf.level = conf_level, materiality = materiality,
         data = binaryData, values = "bookValues", values.audit = "auditValues",
         method = options[["method"]], N.units = options[["N.units"]],
         prior = prior, alternative = options[["area"]], times = "selected"
       )
-    })
+    # })
   } else {
-    result <- try({
+    result <- # try({
       jfa::evaluation(
-        data = dataset, times = options[["indicator_col"]], conf.level = conf_level,
+        data = sample, conf.level = conf_level,
         materiality = materiality, alternative = options[["area"]],
-        values = options[["values"]], values.audit = options[["values.audit"]],
+        values = options[["values"]], values.audit = options[["variable_col"]],
         method = options[["method"]], N.items = options[["N.items"]], N.units = options[["N.units"]],
-        prior = prior
+        prior = prior, times = options[["indicator_col"]]
       )
-    })
+    # })
   }
-  evaluationContainer[["evaluationState"]] <- createJaspState(result)
-  evaluationContainer[["evaluationState"]]$dependOn(c(
+
+  optStopContainer[["evaluationState"]] <- createJaspState(result)
+  optStopContainer[["evaluationState"]]$dependOn(c(
     "materiality_rel_val", "materiality_abs_val", "expected_pop_rate", "values.audit"
   ))
   return(result)
 }
 
-.addExplanation <- function(options, jaspResults, evaluationStateOptStop, evaluationContainer, positionInContainer) {
-  if (!is.null(evaluationContainer[["explanation"]])) {
+.addExplanation <- function(options, jaspResults, evaluationStateOptStop, optStopContainer, positionInContainer) {
+  if (!is.null(optStopContainer[["explanation"]])) {
     return()
   }
-  if (is.null(evaluationContainer[["evaluationState"]])) {
+  if (is.null(optStopContainer[["evaluationState"]])) {
     return()
   }
   materiality <- if (options[["materiality_type"]] == "materiality_rel") options[["materiality_rel_val"]] else options[["materiality_abs_val"]]
@@ -161,15 +213,15 @@ auditBayesianOptionalStopping <- function(jaspResults, dataset, options, ...) {
     "materiality_abs_val", "expected_pop_rate", "values.audit"
   ))
   introduction$position <- positionInContainer
-  evaluationContainer[["introduction"]] <- introduction
+  optStopContainer[["introduction"]] <- introduction
 
 
 }
-.addConclusion <- function(options, jaspResults, evaluationStateOptStop, evaluationContainer, positionInContainer) {
-  if (!is.null(evaluationContainer[["conclusion"]])) {
+.addConclusion <- function(options, jaspResults, evaluationStateOptStop, optStopContainer, positionInContainer) {
+  if (!is.null(optStopContainer[["conclusion"]])) {
     return()
   }
-  if (is.null(evaluationContainer[["evaluationState"]])) {
+  if (is.null(optStopContainer[["evaluationState"]])) {
      return()
   }
   threshold_acc <- round((1 - options[["alpha_risk"]]) / options[["alpha_risk"]], 3)
@@ -199,14 +251,14 @@ auditBayesianOptionalStopping <- function(jaspResults, dataset, options, ...) {
     "materiality_abs_val", "expected_pop_rate", "values.audit"
   ))
   conclusion$position <- positionInContainer
-  evaluationContainer[["conclusion"]] <- conclusion
+  optStopContainer[["conclusion"]] <- conclusion
 }
 
-.jfaPlotOptStop <- function(options, jaspResults, evaluationStateOptStop, dataset, evaluationContainer, positionInContainer) {
-  if (!is.null(evaluationContainer[["seqPlot"]])) {
+.jfaPlotOptStop <- function(options, jaspResults, evaluationStateOptStop, dataset, optStopContainer, positionInContainer) {
+  if (!is.null(optStopContainer[["seqPlot"]])) {
     return()
   }
-  if (is.null(evaluationContainer[["evaluationState"]])) {
+  if (is.null(optStopContainer[["evaluationState"]])) {
     return()
   }
   .jfaFigureNumberUpdate(jaspResults)
@@ -217,13 +269,13 @@ auditBayesianOptionalStopping <- function(jaspResults, dataset, options, ...) {
     "alpha_risk", "beta_risk", "materiality_rel_val",
     "materiality_abs_val", "expected_pop_rate", "values.audit"
   ))
-  evaluationContainer[["seqPlot"]] <- fg
+  optStopContainer[["seqPlot"]] <- fg
   caption <- createJaspHtml(gettextf(
     "<b>Figure %1$i.</b> Monitoring the Bayes factor throughout data collection.",
     jaspResults[["figNumber"]]$object
   ), "p")
   caption$position <- positionInContainer + 1
-  evaluationContainer[["plotOptStopText"]] <- caption
+  optStopContainer[["plotOptStopText"]] <- caption
   threshold_acc <- (1 - options[["alpha_risk"]]) / options[["alpha_risk"]]
   threshold_rej <- options[["beta_risk"]] / (1 - options[["beta_risk"]])
   bf <- c()
@@ -232,12 +284,18 @@ auditBayesianOptionalStopping <- function(jaspResults, dataset, options, ...) {
     materiality = materiality, expected = options[["expected_pop_rate"]], likelihood = "binomial",
     method = "impartial"
   )
-  if (all(unique(dataset[[options[["values.audit"]]]]) %in% c(0, 1))) {
-    bookValues <- rep(1, nrow(dataset))
-    auditValues <- ifelse(dataset[[options[["values.audit"]]]] == 0, 1, 0)
-    selected <- dataset[[options[["times"]]]]
+
+  newData <- .readDataSetToEnd(columns = c(options[["variable_col"]], options[["indicator_col"]]))
+  updatedDataset <- cbind(dataset, newData)
+  sample <- subset(updatedDataset, updatedDataset[[options[["indicator_col"]]]] != 0)
+  sample[[options[["indicator_col"]]]] <- as.numeric(sample[[options[["indicator_col"]]]])
+
+  if (all(unique(sample[[options[["variable_col"]]]]) %in% c(0, 1))) {
+    bookValues <- rep(1, nrow(sample))
+    auditValues <- ifelse(sample[[options[["variable_col"]]]] == 0, 1, 0)
+    selected <- sample[[options[["indicator_col"]]]]
     binaryData <- as.data.frame(cbind(bookValues, auditValues, selected))
-    for (i in seq_len(nrow(dataset))){
+    for (i in seq_len(nrow(binaryData))){
       bf[i] <- jfa::evaluation(
         conf.level = options[["conf_level"]], materiality = materiality,
         data = binaryData[1:i, ], values = "bookValues", values.audit = "auditValues",
@@ -246,11 +304,11 @@ auditBayesianOptionalStopping <- function(jaspResults, dataset, options, ...) {
       )[["posterior"]][["hypotheses"]]$bf.h1
     }
   } else {
-    for (i in seq_len(nrow(dataset))){
+    for (i in seq_len(nrow(sample))){
     bf[i] <- jfa::evaluation(
-      data = dataset, times = options[["indicator_col"]], conf.level = options[["conf_level"]],
+      data = sample[1:i, ], times = options[["indicator_col"]], conf.level = options[["conf_level"]],
       materiality = materiality, alternative = options[["area"]],
-      values = options[["values"]], values.audit = options[["values.audit"]],
+      values = options[["values"]], values.audit = options[["variable_col"]],
       method = options[["method"]], N.items = options[["N.items"]], N.units = options[["N.units"]],
       prior = prior
       )[["posterior"]][["hypotheses"]]$bf.h1
@@ -265,10 +323,10 @@ if (all(abs(yRange) <= log(100))) {
   threshold_rej <- log(threshold_rej) * log10(exp(1))
 }
 p <- plot(evaluationStateOptStop, type = "sequential") +
-  ggplot2::geom_hline(ggplot2::aes(yintercept = threshold_acc, linetype = "Threshold for acceptance"), color = "green") +
-  ggplot2::geom_hline(ggplot2::aes(yintercept = threshold_rej, linetype = "Threshold for rejection"), color = "red") +
+  ggplot2::geom_hline(ggplot2::aes(yintercept = threshold_acc, linetype = "Threshold for acceptance"), color = "darkgreen") +
+  ggplot2::geom_hline(ggplot2::aes(yintercept = threshold_rej, linetype = "Threshold for rejection"), color = "darkred") +
   ggplot2::scale_linetype_manual(name = "", values = c("Threshold for acceptance" = "dashed", "Threshold for rejection" = "dashed")) +
-  ggplot2::guides(linetype = ggplot2::guide_legend(override.aes = list(color = c("green", "red"), linetype = c("dashed", "dashed")), nrow = 1)) +
+  ggplot2::guides(linetype = ggplot2::guide_legend(override.aes = list(color = c("darkgreen", "darkred"), linetype = c("dashed", "dashed")), nrow = 1)) +
   ggplot2::theme(legend.position = "bottom", plot.margin = ggplot2::unit(c(1, 1, 2, 1), "lines"), axis.ticks.y.right = ggplot2::element_blank(), 
     axis.text.y.right = ggplot2::element_blank(), axis.title.y.right = ggplot2::element_blank()) +
   ggplot2::geom_segment(x = Inf, xend = Inf, y = -Inf, yend = Inf, color = "white") 
